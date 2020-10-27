@@ -1,0 +1,27 @@
+results
+  |- bbf
+  | |- bbf.pickle
+  | |- raw_bbf.pickle
+  | |- raw json bbf files
+  | |- ...
+  |- citaty_info
+  | |- qbq
+  | | |- ci.pickle
+  | | |- raw_ci.pickle
+  | | |- raw json all pages citaty_info files
+  | | |- ...
+  | |- raw topics json citaty_info files
+  | |- ...
+  |- description.txt
+  |- result_bbf.pickle
+  |- result_ci.pickle
+
+##########################################
+
+bbf - directory of bbf.ru files
+citaty_info - directory of citaty.info files
+
+raw_bbf.pickle and bbf.pickle - results of create_bbf_dataset.py
+raw_ci.pickle and ci.pickle - results of create_ci_dataset.py
+
+result_bbf.pickle and result_ci.pickle - final datasets, results of create_final_datasets.py
