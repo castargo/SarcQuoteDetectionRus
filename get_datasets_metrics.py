@@ -1,15 +1,17 @@
+import nltk
 import os
 import pickle
-import random
 import string
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
 
 from nltk.corpus import stopwords
 from pymystem3 import Mystem
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.linear_model import LogisticRegression as Logit
-from sklearn.metrics import f1_score
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import normalize
+from sklearn.utils import shuffle
+from wordcloud import WordCloud
 
 
 def remove_punctuations(text):
@@ -21,24 +23,40 @@ def remove_punctuations(text):
 def stem_text(text):
     text_list = mystem.lemmatize(" ".join(text.split()))
     return " ".join(
-        [elem for elem in text_list if elem not in list([' ', '\n'] + stopwords.words("russian"))]
+        [elem for elem in text_list if elem not in words_to_del]
     )
 
 
+def get_top_n_words(corpus, n=None):
+    vec = CountVectorizer(ngram_range=(2,2)).fit(corpus)
+    bag_of_words = vec.transform(corpus)
+    sum_words = bag_of_words.sum(axis=0) 
+    words_freq = [(word, sum_words[0, idx]) for word, idx in vec.vocabulary_.items()]
+    words_freq =sorted(words_freq, key = lambda x: x[1], reverse=True)
+    return words_freq[:n]
+
+
 if __name__ == '__main__':
-    dataset = 'bbf'
-    # dataset = 'ci'
-    
     data_path = '../results'
     
     # Get data
-    if dataset == 'bbf':
-        with open(os.path.join(data_path, 'result_bbf.pickle'), 'rb') as f:
-            df = pickle.load(f)
-    else:
-        with open(os.path.join(data_path, 'result_ci.pickle'), 'rb') as f:
-            df = pickle.load(f)
-            
+    with open(os.path.join(data_path, 'result.pickle'), 'rb') as f:
+        df = pickle.load(f)
+    
+    df = shuffle(df)
+    
+    # Most popular authors
+    items = dict()
+    for item_list in df.author:
+        if item_list:
+            for item in item_list:
+                if item in items.keys():
+                    items[item] += 1
+                else:
+                    items[item] = 1
+
+    print(dict(sorted(items.items(), key=lambda item: item[1], reverse=True)[:20]))
+      
     # Delete punctuation
     df.quote = df.quote.apply(remove_punctuations)
     df.quote = df.quote.apply(lambda s: s.lower() if type(s) == str else s)
@@ -46,75 +64,15 @@ if __name__ == '__main__':
     
     # Add mystem
     mystem = Mystem()
+    words_to_del = [' ', '\n'] + stopwords.words("russian")
     df.quote = df.quote.apply(stem_text)
     df = df[df['quote'].apply(lambda x: len(x) > 10)]
-    
-    # Split data to train and test
-    train_df, test_df = train_test_split(df, test_size=0.3, random_state=42)
-    
-    # Random
-    y_test = test_df.target
-    y_pred = [random.choice([0, 1]) for y in y_test]
-    print("F1 for random:")
-    print(f1_score(y_test, y_pred, average='binary'))
-    
-    # Bag-of-Words
-    vectorizer = CountVectorizer(ngram_range=(1,1))
-    X = vectorizer.fit_transform(train_df.quote)
-    y = train_df.target
-    
-    X_test = vectorizer.transform(test_df.quote)
-    y_test = test_df.target
-    
-    normalize(X, copy=False)
-    normalize(X_test, copy=False)
-    
-    clf = Logit(
-        solver='liblinear',
-        class_weight={
-            0: df[df.target == 0].shape[0], 
-            1: df[df.target == 1].shape[0]
-        },
-        dual=True,
-        fit_intercept=False,
-        random_state=0
-    )
-    
-    clf.fit(X, y)
-    
-    print("F1 train bag-of-words:")
-    print(f1_score(y, clf.predict(X), average='binary'))
-    
-    print("F1 test bag-of-words:")
-    y_pred = clf.predict(X_test)
-    print(f1_score(y_test, y_pred, average='binary'))
-    
-    # Bag-of-Bi-grams
-    vectorizer = CountVectorizer(ngram_range=(2,2))
-    X = vectorizer.fit_transform(train_df.quote)
-    y = train_df.target
-    
-    X_test = vectorizer.transform(test_df.quote)
-    y_test = test_df.target
-    
-    normalize(X, copy=False)
-    normalize(X_test, copy=False)
-    
-    clf = Logit(
-        penalty='l1',
-        solver='saga',
-        class_weight={
-            0: df[df.target == 0].shape[0], 
-            1: df[df.target == 1].shape[0]
-        },
-        random_state=0,
-    )
-    
-    clf.fit(X, y)
-    
-    print("F1 train bag-of-bigrams:")
-    print(f1_score(y, clf.predict(X), average='binary'))
-    
-    print("F1 test bag-of-bigrams:")
-    y_pred = clf.predict(X_test)
-    print(f1_score(y_test, y_pred, average='binary'))
+       
+    # Get the top 20 common words
+    common_words = get_top_n_words(df.quote, 20)
+    for word, freq in common_words:
+        print(word, '--', freq)
+        
+    common_words = get_top_n_words(df[df.target == 1]['quote'], 20)
+    for word, freq in common_words:
+        print(word, '--', freq)

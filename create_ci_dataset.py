@@ -61,16 +61,18 @@ def normalize_column(tag):
 
 
 def is_character_in_text(text, characters):
-    """Checks if a text contains characters"""
     text = text.lower()
     for character in [char.lower() for char in characters]:
-        if re.findall(character, text):
+        if character in text:
             return True
     return False
 
 
-def is_target_in_tags(tag, topic_list):
-    """Check if tags contains target"""
+# def is_target_in_tags(tag, topic_list):
+#     """Check if tags contains target"""
+#     return True if set(tag).intersection(topic_list) else False
+
+def get_tags_by_topic(tag, topic_list):
     return True if set(tag).intersection(topic_list) else False
 
 
@@ -214,7 +216,7 @@ if __name__ == '__main__':
         'насмешки', 'издевательство', 'сатира', 'остроумие', 'черный юмор',
     ]
 
-    df['target'] = df['tag'].apply(lambda x: is_target_in_tags(x, labels))
+    df['target'] = df['tags'].apply(lambda x: get_tags_by_topic(x, labels))
 
     df.target = df.target.fillna(0)
     df.target = pd.to_numeric(df.target, errors='coerce').astype(int)

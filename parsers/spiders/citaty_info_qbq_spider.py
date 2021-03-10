@@ -9,8 +9,8 @@ class CitatyInfoQuoteByQuoteSpider(scrapy.Spider):
     name = "citaty_info_qbq"
 
     def __init__(self):
-        self.first_quote = 560001
-        self.last_quote = 561161
+        self.first_quote = 565001
+        self.last_quote = 570000
         self.directory = 'results/citaty_info/qbq'
         self.filename = 'qbq_%s_%s.txt' % (self.first_quote, self.last_quote)
 

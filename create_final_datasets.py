@@ -10,13 +10,13 @@ from tqdm.auto import tqdm
 
 
 def del_extra_word(sstr):
-    return re.sub(r' +', ' ', sstr.replace('цитаты', ''))
+    return re.sub(r' +', ' ', sstr.replace(' цитаты', ''))
 
 
 def dropifjaro(ind):
     r1 = df.iloc[ind]
     r2 = df.iloc[ind + 1]
-    if jellyfish.jaro_winkler_similarity(r1.quote, r2.quote) > 0.9:
+    if (jellyfish.jaro_winkler_similarity(r1.quote, r2.quote) > 0.9):
         df.at[ind, 'source'] = r1.source or r2.source
         df.at[ind, 'tags'] = list(set(r1.tags + r2.tags))
         df.at[ind, 'author'] = list(set(r1.author + r2.author))
@@ -39,18 +39,22 @@ if __name__ == '__main__':
     ci_path = '../results/citaty_info/qbq'
     
     # Get datasets
-    # dataset = 'bbf'
-    dataset = 'ci'
+    with open(os.path.join(bbf_path, 'bbf.pickle'), 'rb') as f:
+        bbf = pickle.load(f)
+        
+    with open(os.path.join(ci_path, 'ci.pickle'), 'rb') as f:
+        ci = pickle.load(f)
+
+    ci = ci.reset_index(drop=True)
     
-    if dataset == 'bbf':
-        with open(os.path.join(bbf_path, 'bbf.pickle'), 'rb') as f:
-            df = pickle.load(f)
-    else:
-        with open(os.path.join(ci_path, 'ci.pickle'), 'rb') as f:
-            df = pickle.load(f)
+    df = pd.concat([ci, bbf])
+    df = df.reset_index(drop=True)
+    
+    df = df.astype(object).where(pd.notnull(df), None)
+    df.submitted_date = df.submitted_date.astype(object).where(df.submitted_date.notnull(), None)
     
     # Delete quotes with unpropreate lenght
-    df = df[df['quote'].apply(lambda x: 10 < len(x) < 350)]
+    df = df[df['quote'].apply(lambda x: len(x) > 10 and len(x) < 350)]
     
     # Prepare tags
     for ind, row in df.iterrows():
@@ -71,11 +75,25 @@ if __name__ == '__main__':
     
     df['quote'] = df['quote'].apply(clear_text)
     df['quote'] = df['quote'].str.strip()
-    df = df[df['quote'].apply(lambda x: len(x) > 10)]
+    df['quote'] = df['quote'].apply(lambda s: ' '.join(s.split()))
+    df['quote'] = df['quote'].apply(
+        lambda s: re.sub(r'''^[! ,?'"#%&*+.\/~:;=@\\\^{|}$\(\)\[\]<>№_]* ''', '', s)
+    )
+    
+    # Strip whitespaces before punctuation
+    df['quote'] = df['quote'].apply(
+        lambda s: re.sub(r'''\s([! ,?'"#%&*+.\/~:;=@\\\^{|}$\(\)\[\]<>№_](?:\s|$))''', r'\1', s)
+    )
     
     # Delete duplicates
+    # Drop complete matches
     df = df.sort_values(by=['quote'])
-    df.reset_index(drop=True, inplace=True)
+    df.reset_index(drop=True, inplace=True);
+    df = df[df['quote'].apply(lambda x: len(x) > 10)]
+    df = df.drop_duplicates(subset='quote')
+    
+    # Drop duplicates
+    df = df.reset_index(drop=True)
     
     with Parallel(n_jobs=1, require='sharedmem') as parallel:
         indexes4drop = parallel(
@@ -84,18 +102,9 @@ if __name__ == '__main__':
         )
         
     df.drop(list(filter(None, indexes4drop)), inplace=True)
-    df.target = pd.to_numeric(df.target, errors='coerce').astype(int)
-    df.is_dialog = pd.to_numeric(df.is_dialog, errors='coerce').astype(int)
-    
-    df = df.sample(frac=1).reset_index(drop=True)
-    df = df[df['quote'].apply(lambda x: len(x) > 10)]
     
     # Save file
     result_path = '../results'
     
-    if dataset == 'bbf':
-        with open(os.path.join(result_path, 'result_bbf.pickle'), 'wb') as f:
-            pickle.dump(df, f)
-    else:
-        with open(os.path.join(result_path, 'result_ci.pickle'), 'wb') as f:
-            pickle.dump(df, f)
+    with open(os.path.join(result_path, 'result.pickle'), 'wb') as f:
+        pickle.dump(df, f)
