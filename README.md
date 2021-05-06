@@ -96,3 +96,6 @@ python3 name_of_file.py
 
 ## Acknowledgments
 We express our gratitude to the administration of citaty.info and bbf.ru for providing the data.
+
+## License
+This project is licensed under the terms of the MIT license.
